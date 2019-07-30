@@ -1,7 +1,9 @@
 import os
 import random
 import time
+import numpy as np
 import tensorflow as tf
+import operator
 
 
 class Game():
@@ -26,7 +28,12 @@ class Game():
 
           self.playArray = list()
           for i in range(0,numPlayers):
-               self.playArray.append(Player(self.fact))
+               if i == 0:
+                    self.playArray.append(Player(self.fact))
+               elif i == 1:
+                    self.playArray.append(NNPlayer(self.fact, newMod=True))
+               else:
+                    self.playArray.append(NNPlayer(self.fact, newMod=True))
 
           self.playersTurn = random.randint(0,numPlayers-1)
 
@@ -80,12 +87,23 @@ class Game():
           self.endGame()
 
      def endGame(self):
+          bestNNPlayer = {}
+          bestPlayer = {}
           for i, player in enumerate(self.playArray):
                score = player.endOfGame()
+               if "neural" in player.name:
+                    bestNNPlayer[i] = score
+               bestPlayer[i] = score
                print("The score for",i,"is",score)
                for i,j in zip(player.board.wall,player.board.garage):
                     print("***","    "*(5-len(j)),j,"***",i,"***")
                print(" ")
+          # Finally, save the winning player to use in the next run
+          if len(bestNNPlayer) > 0:
+               self.playArray[max(bestNNPlayer.items(), key=operator.itemgetter(1))[0]].saveWinner()
+          print("")
+          print("bestPlayer",bestPlayer)
+          print("The winner is", max(bestPlayer.items(), key=operator.itemgetter(1))[0])
 
 class GenericPlayer:
      def __init__(self, fact, name="default"):
@@ -100,7 +118,7 @@ class GenericPlayer:
           return self.score          
 
 class NNPlayer(GenericPlayer):
-     def __init__(self, fact, name="neural", newMod=False)
+     def __init__(self, fact, name="neural", newMod=False):
           GenericPlayer.__init__(self, fact, name=name)
           # initialize the neural net
           # if we make the first dimension the size of the possible number of choices
@@ -110,27 +128,131 @@ class NNPlayer(GenericPlayer):
           # Another possibility is to use a CNN for the garage and wall. Then have the 
           # NN determine which number would be the best to grab. Then logic would be 
           # needed to pick the best number of tiles and place them.
-          
+          # The output possibilities are the number of rows x the number of choices of 
+          # tiles to go in a row = 5x5=25
+          # The inputs could be the number of tiles available for each color, max of 27.
 
+          # Three separate decisions need to be made:
+          #    1. Which square in the wall would we like to fill in?
+          #    2. Is it possible to put this color in the garage?
+          #    3. How many of this color do we want to grab?
+          
+          '''
           self.mod1 = tf.keras.models.Sequential([
                # The inputs will be the 5x5 matrix of the wall and 1 channel with the color info
-               tf.keras.layers.Conv2D(20, activation='relu', input_shape=(5,5,1)),
+               tf.keras.layers.Conv2D(20, kernel_size=1, activation='relu', input_shape=(5,5,1)),
                tf.keras.layers.Conv2D(5, activation='relu',),
                tf.keras.layers.Dense(5)
                ])
-          if newMod:
+          '''
+          wallInput = tf.keras.Input(shape=(5,5,1))
+          factInput = tf.keras.Input(shape=(10,4,1))
+
+          x = tf.keras.layers.Conv2D(20, 1, activation='relu')(wallInput)
+          x = tf.keras.layers.Conv2D(15, 1, activation='relu')(x)
+          x = tf.keras.layers.Dense(10, activation='relu')(x)
+          x = tf.keras.layers.Reshape((5,2,10))(x)
+          x = tf.keras.Model(inputs=wallInput, outputs=x)
+
+          y = tf.keras.layers.Conv2D(20, 1, activation='relu')(factInput)
+          y = tf.keras.layers.Conv2D(15, 1, activation='relu')(y)
+          y = tf.keras.layers.Dense(10, activation='relu')(y)
+          y = tf.keras.layers.Reshape((5,2,10))(y)
+          y = tf.keras.Model(inputs=factInput, outputs=y)
+
+          combined = tf.keras.layers.concatenate([x.output, y.output])
+
+          # This output has information about which factory we are taking from
+          z1 = tf.keras.layers.Dense(2, activation='relu')(combined)
+          z1 = tf.keras.layers.Dense(1, activation='linear')(z1)
+
+          # This output tells which color to take
+          z2 = tf.keras.layers.Dense(2, activation='relu')(combined)
+          z2 = tf.keras.layers.Dense(1, activation='linear')(z2)
+
+          # This output tells which row of the garage to place the tiles in
+          # If this row is full put it in the next larger row
+          z3 = tf.keras.layers.Dense(2, activation='relu')(combined)
+          z3 = tf.keras.layers.Dense(1, activation='linear')(z3)
+
+          self.mod1 = tf.keras.Model(inputs=[x.input, y.input], outputs=[z1, z2, z3])
+          # the output is 50. So take the tile from position 1 in factory 1 if the output is 1
+          # or from positions 2 in factory 2 if the output is 6. etc. Make sure to take all other
+          # similar colors from that factory also
+         
           ## ------------------------------------------------
           ##  Load the saved weights from the previous runs
           ##
           if newMod:
                # Initialize a new model that will compete with the best previous model
+               # For now we use the random kernel_initializer='glorot_uniform' to compete with the 
+               # previous model
+               pass
           else:        
                self.model_save_path = "s_pred.h5"
                self.mod1.load_weights(filepath=self.model_save_path)
        
 
      def pickTiles(self):
-          pass
+          factIns = np.array(self.fact.factDisps + np.array(self.fact.tableCenter))
+          print("factDisps",self.fact.factDisps)
+          print("tableCenter",self.fact.tableCenter)
+
+          wallIns = [[[float(y) for y in x] for x in self.board.wall]]
+          factIns = [[[float(y) for y in x] for x in factIns]]
+          
+          wallIns = np.array(wallIns)
+          factIns = np.array(factIns)
+          print("wallIns ",wallIns)
+          print("factIns ",factIns)
+          #print("wallIns shape",wallIns.shape())
+          #print("factIns shape",factIns.shape())
+          wallIns = wallIns.reshape((5,5,1))
+          factIns = factIns.reshape((10,4,1))
+          print("wallIns shape",wallIns.shape())
+          print("factIns shape",factIns.shape())
+          fact, col, row = self.mod1([wallIns, factIns])
+
+          fact = round(fact*10)
+          col = round(col*5)
+          row = round(row*5)
+          if fact > 9 or fact < 0:
+               fact = rand(0,8)
+          if col > 4 or col < 0:
+               col = rand(0,4)
+          if row > 4 or row < 0:
+               row = rand(0,4)
+
+          if fact == 9:
+               cnt = self.fact.tableCenter.count(col)
+               if self.fact.tableCenter.count(5) > 0:
+                    self.fact.tableCenter.remove(5)
+                    self.board.floor.append(5)
+          else:
+               while self.fact.factDisps[fact].count(col) == 0:
+                    fact = rand(0,8)
+                    col = rand(0,4)
+               cnt = self.fact.factDisps[fact].count(col)
+               for i in range(4):
+                    if self.fact.factDisps[i] != col:
+                         self.fact.tableCenter.append(self.fact.factDisps[i])
+               self.fact.factDisps[fact] = [-1,-1,-1,-1]
+
+          while self.board.garage[row].count(col) == 0 and self.board.garage[row].count(-1) != row+1:
+               row = (row+1)%5
+          tilesUsed = 0
+          for j in range(len(self.board.garage[row])):
+               if self.board.garage[i][j] == -1:
+                    self.board.garage[i][j] = col
+                    tilesUsed += 1
+          for j in range(cnt-tilesUsed):
+               self.board.floor.append(col)
+               tilesUsed += 1
+
+
+
+     def saveWinner(self):
+          self.mod1.save_weights(filepath=self.model_save_path, overwrite=True)
 
 
 
@@ -157,7 +279,7 @@ class Player(GenericPlayer):
                          for j in self.fact.factDisps[turnR]:
                               if j != i and j != -1:
                                    self.fact.tableCenter.append(j)
-                                   self.fact.factDisps[turnR] = [-1,-1,-1,-1]
+                         self.fact.factDisps[turnR] = [-1,-1,-1,-1]
                          return True
 
                for i in self.fact.factDisps[turnR]:
@@ -166,7 +288,7 @@ class Player(GenericPlayer):
                          for j in self.fact.factDisps[turnR]:
                               if j != i and j != -1:
                                    self.fact.tableCenter.append(j)
-                                   self.fact.factDisps[turnR] = [-1,-1,-1,-1]
+                         self.fact.factDisps[turnR] = [-1,-1,-1,-1]
                          return True
           else:
                for i in self.fact.tableCenter:
@@ -347,6 +469,6 @@ class Factory():
 
 
 
-gm = Game(3)
+gm = Game(4)
 gm.startGame()     
      
