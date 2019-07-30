@@ -4,6 +4,8 @@ import time
 import numpy as np
 import tensorflow as tf
 import operator
+import time
+import random
 
 
 class Game():
@@ -46,6 +48,9 @@ class Game():
           print(ply.board.floor)
           print(" ")
           print(ply.fact.factDisps)
+          print(" ")
+          print("table center:")
+          print(ply.fact.tableCenter)
           print(" ")
           print("score is",ply.score)
           print(" ")
@@ -151,7 +156,7 @@ class NNPlayer(GenericPlayer):
           x = tf.keras.layers.Conv2D(20, 1, activation='relu')(wallInput)
           x = tf.keras.layers.Conv2D(15, 1, activation='relu')(x)
           x = tf.keras.layers.Dense(10, activation='relu')(x)
-          x = tf.keras.layers.Reshape((5,2,10))(x)
+          x = tf.keras.layers.Reshape((50,))(x)
           x = tf.keras.Model(inputs=wallInput, outputs=x)
 
           y = tf.keras.layers.Conv2D(20, 1, activation='relu')(factInput)
@@ -160,22 +165,27 @@ class NNPlayer(GenericPlayer):
           y = tf.keras.layers.Reshape((5,2,10))(y)
           y = tf.keras.Model(inputs=factInput, outputs=y)
 
-          combined = tf.keras.layers.concatenate([x.output, y.output])
+          #combined = tf.keras.layers.concatenate([x.output, y.output])
+          combined = x.output
 
           # This output has information about which factory we are taking from
           z1 = tf.keras.layers.Dense(2, activation='relu')(combined)
+          z1 = tf.keras.layers.Dense(1, activation='relu')(z1)
           z1 = tf.keras.layers.Dense(1, activation='linear')(z1)
 
           # This output tells which color to take
           z2 = tf.keras.layers.Dense(2, activation='relu')(combined)
+          z2 = tf.keras.layers.Dense(1, activation='relu')(z2)
           z2 = tf.keras.layers.Dense(1, activation='linear')(z2)
 
           # This output tells which row of the garage to place the tiles in
           # If this row is full put it in the next larger row
           z3 = tf.keras.layers.Dense(2, activation='relu')(combined)
+          z3 = tf.keras.layers.Dense(1, activation='relu')(z3)
           z3 = tf.keras.layers.Dense(1, activation='linear')(z3)
 
           self.mod1 = tf.keras.Model(inputs=[x.input, y.input], outputs=[z1, z2, z3])
+          self.mod1.summary()
           # the output is 50. So take the tile from position 1 in factory 1 if the output is 1
           # or from positions 2 in factory 2 if the output is 6. etc. Make sure to take all other
           # similar colors from that factory also
@@ -194,56 +204,70 @@ class NNPlayer(GenericPlayer):
        
 
      def pickTiles(self):
-          factIns = np.array(self.fact.factDisps + np.array(self.fact.tableCenter))
-          print("factDisps",self.fact.factDisps)
-          print("tableCenter",self.fact.tableCenter)
+          factIns = self.fact.factDisps + self.fact.tableCenter
 
-          wallIns = [[[float(y) for y in x] for x in self.board.wall]]
-          factIns = [[[float(y) for y in x] for x in factIns]]
+
+          wallIns = [[[np.float32(y) for y in x] for x in self.board.wall]]
+          #factIns = [[[float(y) for y in x] for x in factIns]]
           
           wallIns = np.array(wallIns)
-          factIns = np.array(factIns)
-          print("wallIns ",wallIns)
-          print("factIns ",factIns)
+          #factIns = np.array(factIns)
+
+          #print("factIns ",factIns)
           #print("wallIns shape",wallIns.shape())
           #print("factIns shape",factIns.shape())
-          wallIns = wallIns.reshape((5,5,1))
-          factIns = factIns.reshape((10,4,1))
-          print("wallIns shape",wallIns.shape())
-          print("factIns shape",factIns.shape())
-          fact, col, row = self.mod1([wallIns, factIns])
+          wallIns = wallIns.reshape((5,5,1,1))
+          #factIns = factIns.reshape((10,4,1))
+          #print("wallIns shape",wallIns.shape())
+          #print("factIns shape",factIns.shape())
+          #fact, col, row = self.mod1([wallIns, factIns])
+          fact, col, row = self.mod1(wallIns)
 
-          fact = round(fact*10)
-          col = round(col*5)
-          row = round(row*5)
-          if fact > 9 or fact < 0:
-               fact = rand(0,8)
+          factN = int(fact.numpy()[0,0])
+          col = int(col.numpy()[0,0])
+          row = int(row.numpy()[0,0])
+          
+          if factN > 9 or factN < 0:
+               factN = rand(0,9)
           if col > 4 or col < 0:
                col = rand(0,4)
           if row > 4 or row < 0:
                row = rand(0,4)
 
-          if fact == 9:
+          if factN == 9 and len(self.fact.tableCenter) == 0:
+               factN = rand(0,8)
+          if factN == 9:
+               while self.fact.tableCenter.count(col) == 0:
+                    col = random(randint(0,4))
+                    if self.fact.tableCenter.count(col) > 0:
+                         break
                cnt = self.fact.tableCenter.count(col)
                if self.fact.tableCenter.count(5) > 0:
                     self.fact.tableCenter.remove(5)
                     self.board.floor.append(5)
           else:
-               while self.fact.factDisps[fact].count(col) == 0:
-                    fact = rand(0,8)
-                    col = rand(0,4)
-               cnt = self.fact.factDisps[fact].count(col)
+               while self.fact.factDisps[factN].count(col) == 0:
+                    factN = random.randint(0,8)
+                    col = random.randint(0,4)
+
+                    if self.fact.factDisps[factN].count(col) > 0:
+                         break
+                    
+
+               cnt = self.fact.factDisps[factN].count(col)
                for i in range(4):
-                    if self.fact.factDisps[i] != col:
-                         self.fact.tableCenter.append(self.fact.factDisps[i])
-               self.fact.factDisps[fact] = [-1,-1,-1,-1]
+                    if self.fact.factDisps[factN][i] != col:
+                         self.fact.tableCenter.append(self.fact.factDisps[factN][i])
+               self.fact.factDisps[factN] = [-1,-1,-1,-1]
 
           while self.board.garage[row].count(col) == 0 and self.board.garage[row].count(-1) != row+1:
+
                row = (row+1)%5
           tilesUsed = 0
+          print("picked", cnt, "of", col)
           for j in range(len(self.board.garage[row])):
-               if self.board.garage[i][j] == -1:
-                    self.board.garage[i][j] = col
+               if self.board.garage[row][j] == -1:
+                    self.board.garage[row][j] = col
                     tilesUsed += 1
           for j in range(cnt-tilesUsed):
                self.board.floor.append(col)
