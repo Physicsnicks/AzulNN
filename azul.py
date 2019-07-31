@@ -7,7 +7,7 @@ import operator
 import time
 import random
 
-
+batches = 100
 class Game():
      '''
           The game sets up a factory, some players, and keeps track of the turn. 
@@ -80,7 +80,7 @@ class Game():
                
           else:
                self.playArray[self.playersTurn].pickTiles()
-               self.display(self.playArray[self.playersTurn], self.playersTurn)
+               #self.display(self.playArray[self.playersTurn], self.playersTurn)
           return True
 
 
@@ -89,7 +89,7 @@ class Game():
           while keepGoing:
                keepGoing = self.nextTurn()
                self.playersTurn = (self.playersTurn + 1)%self.numPlayers
-          self.endGame()
+          return self.endGame()
 
      def endGame(self):
           bestNNPlayer = {}
@@ -105,10 +105,12 @@ class Game():
                print(" ")
           # Finally, save the winning player to use in the next run
           if len(bestNNPlayer) > 0:
+               print("NN winner is",max(bestNNPlayer.items(), key=operator.itemgetter(1))[0])
                self.playArray[max(bestNNPlayer.items(), key=operator.itemgetter(1))[0]].saveWinner()
           print("")
           print("bestPlayer",bestPlayer)
           print("The winner is", max(bestPlayer.items(), key=operator.itemgetter(1))[0])
+          return max(bestPlayer.items(), key=operator.itemgetter(1))[0]
 
 class GenericPlayer:
      def __init__(self, fact, name="default"):
@@ -126,16 +128,6 @@ class NNPlayer(GenericPlayer):
      def __init__(self, fact, name="neural", newMod=False):
           GenericPlayer.__init__(self, fact, name=name)
           # initialize the neural net
-          # if we make the first dimension the size of the possible number of choices
-          # so, 4 tiles per display and 9 displays + 5 more possibilities in the middle
-          # = 41 possibilites. However, this gives no information about how many tiles
-          # we are selecting and where they go.
-          # Another possibility is to use a CNN for the garage and wall. Then have the 
-          # NN determine which number would be the best to grab. Then logic would be 
-          # needed to pick the best number of tiles and place them.
-          # The output possibilities are the number of rows x the number of choices of 
-          # tiles to go in a row = 5x5=25
-          # The inputs could be the number of tiles available for each color, max of 27.
 
           # Three separate decisions need to be made:
           #    1. Which square in the wall would we like to fill in?
@@ -151,94 +143,121 @@ class NNPlayer(GenericPlayer):
                ])
           '''
           wallInput = tf.keras.Input(shape=(5,5,1))
-          factInput = tf.keras.Input(shape=(10,4,1))
+          factInput = tf.keras.Input(shape=(10,4))
+          centerInput = tf.keras.Input(shape=(50))
 
-          x = tf.keras.layers.Conv2D(20, 1, activation='relu')(wallInput)
-          x = tf.keras.layers.Conv2D(15, 1, activation='relu')(x)
-          x = tf.keras.layers.Dense(10, activation='relu')(x)
-          x = tf.keras.layers.Reshape((50,))(x)
+          x = tf.keras.layers.Conv2D(10, 1, activation='relu')(wallInput)
+          #x = tf.keras.layers.Conv2D(10, 1, activation='relu')(x)
+          #x = tf.keras.layers.Dense(10, activation='relu')(x)
+          x = tf.keras.layers.Reshape((250,))(x)
+          #x = tf.keras.layers.Flatten()(x)
           x = tf.keras.Model(inputs=wallInput, outputs=x)
 
-          y = tf.keras.layers.Conv2D(20, 1, activation='relu')(factInput)
-          y = tf.keras.layers.Conv2D(15, 1, activation='relu')(y)
-          y = tf.keras.layers.Dense(10, activation='relu')(y)
-          y = tf.keras.layers.Reshape((5,2,10))(y)
+          #y = tf.keras.layers.Conv2D(20, 1, activation='relu')(factInput)
+          #y = tf.keras.layers.Conv2D(15, 1, activation='relu')(y)
+          #y = tf.keras.layers.Dense(10, activation='relu')(y)
+          y = tf.keras.layers.Dense(25, activation='relu')(factInput)
+          #y = tf.keras.layers.Flatten()(y)
+          y = tf.keras.layers.Flatten()(y)
+          #y = tf.keras.layers.Reshape((25,))(y)
           y = tf.keras.Model(inputs=factInput, outputs=y)
 
-          #combined = tf.keras.layers.concatenate([x.output, y.output])
-          combined = x.output
+          
+          #q = tf.keras.layers.Conv2D(20, 1, activation='relu')(centerInput)
+          #q = tf.keras.layers.Conv2D(15, 1, activation='relu')(q)
+          q = tf.keras.layers.Dense(10, activation='relu')(centerInput)
+          q = tf.keras.layers.Flatten()(q)          
+          q = tf.keras.Model(inputs=centerInput, outputs=q)
+          
+
+          combined = tf.keras.layers.concatenate([x.output, 
+                                                  y.output, 
+                                                  q.output])
+          #combined = x.output
 
           # This output has information about which factory we are taking from
-          z1 = tf.keras.layers.Dense(2, activation='relu')(combined)
-          z1 = tf.keras.layers.Dense(1, activation='relu')(z1)
-          z1 = tf.keras.layers.Dense(1, activation='linear')(z1)
+          z1 = tf.keras.layers.Dense(64, activation='relu')(combined)
+          z1 = tf.keras.layers.Dense(64, activation='relu')(z1)
+          z1 = tf.keras.layers.Dense(8, activation='softmax')(z1)
 
           # This output tells which color to take
-          z2 = tf.keras.layers.Dense(2, activation='relu')(combined)
-          z2 = tf.keras.layers.Dense(1, activation='relu')(z2)
-          z2 = tf.keras.layers.Dense(1, activation='linear')(z2)
+          z2 = tf.keras.layers.Dense(64, activation='relu')(combined)
+          z2 = tf.keras.layers.Dense(64, activation='relu')(z2)
+          z2 = tf.keras.layers.Dense(5, activation='softmax')(z2)
 
           # This output tells which row of the garage to place the tiles in
           # If this row is full put it in the next larger row
-          z3 = tf.keras.layers.Dense(2, activation='relu')(combined)
-          z3 = tf.keras.layers.Dense(1, activation='relu')(z3)
-          z3 = tf.keras.layers.Dense(1, activation='linear')(z3)
+          z3 = tf.keras.layers.Dense(64, activation='relu')(combined)
+          z3 = tf.keras.layers.Dense(64, activation='relu')(z3)
+          z3 = tf.keras.layers.Dense(5, activation='softmax')(z3)
 
-          self.mod1 = tf.keras.Model(inputs=[x.input, y.input], outputs=[z1, z2, z3])
-          self.mod1.summary()
-          # the output is 50. So take the tile from position 1 in factory 1 if the output is 1
-          # or from positions 2 in factory 2 if the output is 6. etc. Make sure to take all other
-          # similar colors from that factory also
+          self.mod1 = tf.keras.Model(inputs=[x.input, y.input, q.input], outputs=[z1, z2, z3])
+          #self.mod1.summary()
+
          
           ## ------------------------------------------------
           ##  Load the saved weights from the previous runs
           ##
+          self.model_save_path = "s_pred.h5"
           if newMod:
                # Initialize a new model that will compete with the best previous model
                # For now we use the random kernel_initializer='glorot_uniform' to compete with the 
                # previous model
                pass
           else:        
-               self.model_save_path = "s_pred.h5"
+               
                self.mod1.load_weights(filepath=self.model_save_path)
        
 
      def pickTiles(self):
-          factIns = self.fact.factDisps + self.fact.tableCenter
+          #factIns = self.fact.factDisps + self.fact.tableCenter
+          factIns = self.fact.factDisps.copy()
+          factIns.append([-1,-1,-1,-1])
 
+          centIns = [-1.]*50
+          for i, tc in enumerate(self.fact.tableCenter):
+               centIns[i] = tc
 
           wallIns = [[[np.float32(y) for y in x] for x in self.board.wall]]
-          #factIns = [[[float(y) for y in x] for x in factIns]]
+          factIns = [[[np.float32(y) for y in x] for x in factIns]]
+          centIns = [np.float32(y) for y in centIns]
           
           wallIns = np.array(wallIns)
-          #factIns = np.array(factIns)
+          factIns = np.array(factIns)
+          centIns = np.array(centIns)
 
-          #print("factIns ",factIns)
+
           #print("wallIns shape",wallIns.shape())
           #print("factIns shape",factIns.shape())
-          wallIns = wallIns.reshape((5,5,1,1))
-          #factIns = factIns.reshape((10,4,1))
+          wallIns = wallIns.reshape((1,5,5,1))
+          factIns = factIns.reshape((1,10,4))
+          centIns = centIns.reshape((1,50))
           #print("wallIns shape",wallIns.shape())
           #print("factIns shape",factIns.shape())
-          #fact, col, row = self.mod1([wallIns, factIns])
-          fact, col, row = self.mod1(wallIns)
+          fact, col, row = self.mod1([wallIns, factIns, centIns])
+          #fact, col, row = self.mod1(wallIns)
 
           factN = int(fact.numpy()[0,0])
           col = int(col.numpy()[0,0])
           row = int(row.numpy()[0,0])
           
           if factN > 9 or factN < 0:
-               factN = rand(0,9)
+               factN = random.randint(0,9)
           if col > 4 or col < 0:
-               col = rand(0,4)
+               col = random.randint(0,4)
           if row > 4 or row < 0:
-               row = rand(0,4)
-
+               row = random.randint(0,4)
+          onlyCenter = True
+          for dis in self.fact.factDisps:
+               if dis.count(-1) < 4:
+                    onlyCenter = False
+          if onlyCenter:
+               factN = 9
           if factN == 9 and len(self.fact.tableCenter) == 0:
-               factN = rand(0,8)
+               factN = random.randint(0,8)
           if factN == 9:
                while self.fact.tableCenter.count(col) == 0:
-                    col = random(randint(0,4))
+                    col = random.randint(0,4)
                     if self.fact.tableCenter.count(col) > 0:
                          break
                cnt = self.fact.tableCenter.count(col)
@@ -264,7 +283,7 @@ class NNPlayer(GenericPlayer):
 
                row = (row+1)%5
           tilesUsed = 0
-          print("picked", cnt, "of", col)
+          #print("picked", cnt, "of", col)
           for j in range(len(self.board.garage[row])):
                if self.board.garage[row][j] == -1:
                     self.board.garage[row][j] = col
@@ -317,7 +336,7 @@ class Player(GenericPlayer):
           else:
                for i in self.fact.tableCenter:
                     if i > -1 and i < 5:
-                         print("taking",self.fact.tableCenter.count(i), "tiles from center",i)
+                         #print("taking",self.fact.tableCenter.count(i), "tiles from center",i)
                          if 5 in self.fact.tableCenter:
                               self.fact.tableCenter.remove(5)
                               self.board.floor.append(5)
@@ -371,7 +390,7 @@ class Board():
 
      def addToGarage(self,tile,cnt):
           tilesUsed = 0
-          print("picked", cnt, "of", tile)
+          #print("picked", cnt, "of", tile)
           for i, row in enumerate(self.garage):
 
                if tile in row and -1 in row and (cnt-tilesUsed) > 0:
@@ -486,13 +505,22 @@ class Factory():
                          self.factDisps[i][j] = 4
                     
           self.tableCenter = [5]
-          print("After filling the dipslays:")
-          print(self.factDisps)
+          #print("After filling the dipslays:")
+          #print(self.factDisps)
           return True
 
 
-
-
-gm = Game(4)
-gm.startGame()     
+totWins = [0,0,0,0]
+for i in range(batches):
+     gm = Game(4)
+     bp = gm.startGame() 
+     print("bp",bp)
+     print("")
+     print("")
+     print("")
+     print("================================================================")
+     totWins[bp] += 1    
+print("Total Wins:")
+for i, score in enumerate(totWins):
+     print("\tPlayer",i," score:",score)
      
