@@ -7,7 +7,8 @@ import operator
 import time
 import random
 
-batches = 100
+batches = 1000
+weightMod = 0.02
 class Game():
      '''
           The game sets up a factory, some players, and keeps track of the turn. 
@@ -67,7 +68,7 @@ class Game():
                # end the game if we can't refill the factory
                self.fact.fillDisplays()
                for i, player in enumerate(self.playArray):
-                    player.board.rowToWall()
+                    player.score += player.board.rowToWall()
                     if len(player.board.floor) > 0:
                          player.score -= len(player.board.floor)
                          player.board.floor = list()
@@ -99,16 +100,19 @@ class Game():
                if "neural" in player.name:
                     bestNNPlayer[i] = score
                bestPlayer[i] = score
+               '''
                print("The score for",i,"is",score)
                for i,j in zip(player.board.wall,player.board.garage):
                     print("***","    "*(5-len(j)),j,"***",i,"***")
                print(" ")
+               '''
           # Finally, save the winning player to use in the next run
+          print("")
           if len(bestNNPlayer) > 0:
                print("NN winner is",max(bestNNPlayer.items(), key=operator.itemgetter(1))[0])
                self.playArray[max(bestNNPlayer.items(), key=operator.itemgetter(1))[0]].saveWinner()
-          print("")
-          print("bestPlayer",bestPlayer)
+          
+          print("The scores for each player:",bestPlayer)
           print("The winner is", max(bestPlayer.items(), key=operator.itemgetter(1))[0])
           return max(bestPlayer.items(), key=operator.itemgetter(1))[0]
 
@@ -121,8 +125,11 @@ class GenericPlayer:
           self.model_save_path = os.getcwd() + 'model.h5'
 
      def endOfGame(self):
-          self.score = self.board.getScore()
-          return self.score          
+          self.score += self.board.getScore()
+          return self.score 
+
+
+
 
 class NNPlayer(GenericPlayer):
      def __init__(self, fact, name="neural", newMod=False):
@@ -201,9 +208,15 @@ class NNPlayer(GenericPlayer):
           self.model_save_path = "s_pred.h5"
           if newMod:
                # Initialize a new model that will compete with the best previous model
-               # For now we use the random kernel_initializer='glorot_uniform' to compete with the 
-               # previous model
-               pass
+               # For now we use a random weight, in the range -weightMod<=n<=weightMod 
+               # added to the best previous model's weight [0] and biases [1]
+               self.mod1.load_weights(filepath=self.model_save_path)
+               for lay in self.mod1.layers:
+                    for wet in lay.get_weights():
+                         #
+                         wet[0] += random.uniform(-weightMod,weightMod)
+                         #wet[1] += random.uniform(-weightMod,weightMod)
+
           else:        
                
                self.mod1.load_weights(filepath=self.model_save_path)
@@ -376,15 +389,49 @@ class Board():
      # 3 4 0 1 2
      # 2 3 4 0 1
      # 1 2 3 4 0
+     def checkAdjacents(self,row,col):
+          score = 0
+          #check how many are in the row and adjacent to the placed tile
+          if row < 4:
+               for i in range(row+1,5):
+                    if self.wall[i][col] > -1:
+                         score += 1
+                    else:
+                         break
+          if row > 0:
+               for i in range(row-1,-1,-1):
+                    if self.wall[i][col] > -1:
+                         score += 1
+                    else:
+                         break
+          if col < 4:
+               for i in range(col+1,5):
+                    if self.wall[row][i] > -1:
+                         score += 1
+                    else:
+                         break
+          if col > 0:
+               for i in range(col-1,-1,-1):
+                    if self.wall[row][i] > -1:
+                         score += 1 
+                    else:
+                         break
+          return score
+
      def rowToWall(self):
           # This verifies that the garage row is full and moves the tile into the
           # wall at the appropriate place for the standard tiling
+
+          # It also returns an update to the score for mid game score changes
+          scoreChange = 0
           for i, row in enumerate(self.garage):
                if min(row) > -1:
                     if self.wall[i][(self.garage[i][0]+i)%5] == -1:
-                         self.wall[i][(self.garage[i][0]+i)%5] = 1
+                         self.wall[i][(self.garage[i][0]+i)%5] = self.garage[i][0]
+                         scoreChange += self.checkAdjacents(i,(self.garage[i][0]+i)%5)
                     for k in range(len(self.garage[i])):
                          self.garage[i][k] = -1
+          return scoreChange
           
 
 
@@ -470,7 +517,7 @@ class Factory():
 
      def fillDisplays(self):
           # from the bag put tiles on all the displays
-          print("The total length of factDisps is",len(self.factDisps))
+          #print("The total length of factDisps is",len(self.factDisps))
           if self.totNum < 10:
                self.numBlue = 20      # 0
                self.numCheese = 20    # 1
