@@ -11,3 +11,69 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
 }
+
+:root {
+  --board-bg-color: #949494;
+}
+
+.ad-left {
+  float: left;
+}
+
+.ad-right {
+  float: right;
+  margin-left: 20px;
+  margin-bottom: 5px;
+}
+
+.board-right {
+  margin-left: 5px;
+  margin-bottom: 5px;
+}
+
+.wall {
+  margin-bottom: 5px;
+}
+
+.floor-label {
+  margin-left: 10px;
+  margin-right: 6px;
+}
+
+.floor-square {
+  margin-left: 6px;
+  z-index: 1;
+}
+
+.empty-square {
+  background-color: var(--board-bg-color);
+  opacity: 0.0;
+}
+
+.score-board {
+  display: inline-block;
+  margin-top: 25px;
+  margin-left: 25px;
+  font-size: 25px;
+}
+
+.board-container {
+  background-color: var(--board-bg-color);
+  width: 280px;
+  z-index: -1;
+}
+
+.fact-disc {
+  width: 100px;
+}
+
+.disc-tile {
+  display: inline-block;
+  margin-top: 25px;
+}
+
+.disc-container {
+  background-image: url("./imgs/factdisc.png");
+  width: 130px;
+  height: 74px;
+}

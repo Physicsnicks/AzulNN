@@ -1,7 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import './index.css';
 import App from './App';
 
-ReactDOM.render(<App />, document.getElementById('root'));
+import redtile from './imgs/redtile.png';
+import bluetile from './imgs/bluetile.png';
+import yellowtile from './imgs/yellowtile.png';
+import snowtile from './imgs/snowtile.png';
+import blacktile from './imgs/blacktile.png';
+
+
+
+
+ReactDOM.render(
+    <App />,
+    document.getElementById('root'));
 
