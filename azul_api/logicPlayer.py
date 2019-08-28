@@ -20,7 +20,8 @@ class Player(GenericPlayer):
 
             for i in self.fact.factDisps[turnR]:
                 if self.fact.factDisps[turnR].count(i) > 1 and i > 0:
-                    self.board.addToGarage(i, self.fact.factDisps[turnR].count(i))
+                    self.board.add_to_garage(
+                        i, self.fact.factDisps[turnR].count(i))
                     for j in self.fact.factDisps[turnR]:
                         if j != i and j != -1:
                             self.fact.tableCenter.append(j)
@@ -29,7 +30,8 @@ class Player(GenericPlayer):
 
             for i in self.fact.factDisps[turnR]:
                 if i > 0:
-                    self.board.addToGarage(i, self.fact.factDisps[turnR].count(i))
+                    self.board.add_to_garage(
+                        i, self.fact.factDisps[turnR].count(i))
                     for j in self.fact.factDisps[turnR]:
                         if j != i and j != -1:
                             self.fact.tableCenter.append(j)
@@ -42,7 +44,7 @@ class Player(GenericPlayer):
                     if 5 in self.fact.tableCenter:
                         self.fact.tableCenter.remove(5)
                         self.board.floor.append(5)
-                    self.board.addToGarage(i, self.fact.tableCenter.count(i))
+                    self.board.add_to_garage(i, self.fact.tableCenter.count(i))
                     for j in range(0, self.fact.tableCenter.count(i)):
                         self.fact.tableCenter.remove(i)
                     return True

@@ -1,7 +1,10 @@
+import random
+
 import tensorflow as tf
 import numpy as np
-import random
+
 from player import GenericPlayer
+
 
 class NNPlayer(GenericPlayer):
     def __init__(self, fact, name="neural", newMod=False, weightMod=0.1):
@@ -68,11 +71,14 @@ class NNPlayer(GenericPlayer):
         z3 = tf.keras.layers.Dense(64, activation='relu')(z3)
         z3 = tf.keras.layers.Dense(5, activation='softmax')(z3)
 
-        self.mod1 = tf.keras.Model(inputs=[x.input, y.input, q.input], outputs=[z1, z2, z3])
+        self.mod1 = tf.keras.Model(
+            inputs=[
+                x.input, y.input, q.input], outputs=[
+                z1, z2, z3])
         # self.mod1.summary()
 
-        ## ------------------------------------------------
-        ##  Load the saved weights from the previous runs
+        # ------------------------------------------------
+        # Load the saved weights from the previous runs
         ##
         self.model_save_path = "s_pred.h5"
         if newMod:
@@ -158,7 +164,8 @@ class NNPlayer(GenericPlayer):
                     self.fact.tableCenter.append(self.fact.factDisps[factN][i])
             self.fact.factDisps[factN] = [-1, -1, -1, -1]
 
-        while self.board.garage[row].count(col) == 0 and self.board.garage[row].count(-1) != row + 1:
+        while self.board.garage[row].count(
+                col) == 0 and self.board.garage[row].count(-1) != row + 1:
             row = (row + 1) % 5
         tilesUsed = 0
         # print("picked", cnt, "of", col)

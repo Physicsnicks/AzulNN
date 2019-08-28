@@ -14,7 +14,8 @@ class Factory():
         self.numRed = 20  # 2
         self.numBlack = 20  # 3
         self.numSnowflake = 20  # 4
-        self.totNum = self.numBlack + self.numBlue + self.numCheese + self.numRed + self.numSnowflake
+        self.totNum = self.numBlack + self.numBlue + \
+            self.numCheese + self.numRed + self.numSnowflake
         # This is all the tiles on displays, -1 is no tile
         self.factDisps = list()
         for i in range(0, disps):
@@ -22,7 +23,7 @@ class Factory():
         # Add the "go first tile" to the center of the table
         self.tableCenter = [5]
 
-    def fillDisplays(self):
+    def fill_displays(self):
         # from the bag put tiles on all the displays
         # print("The total length of factDisps is",len(self.factDisps))
         if self.totNum < 10:

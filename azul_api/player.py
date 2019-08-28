@@ -1,5 +1,7 @@
-import graphene
 import os
+
+import graphene
+
 from board import Board
 
 
@@ -13,7 +15,7 @@ class GenericPlayer(graphene.ObjectType):
         self.model_save_path = os.getcwd() + 'model.h5'
 
     def endOfGame(self):
-        self.score += self.board.getScore()
+        self.score += self.board.get_score()
         return self.score
 
 

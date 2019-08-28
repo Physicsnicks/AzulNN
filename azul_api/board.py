@@ -11,7 +11,7 @@ class Board():
         for i in range(0, 5):
             self.wall.append([-1, -1, -1, -1, -1])
 
-    def checkEnd(self):
+    def check_end(self):
         for row in self.wall:
             if min(row) > -1:
                 return True
@@ -23,7 +23,7 @@ class Board():
     # 3 4 0 1 2
     # 2 3 4 0 1
     # 1 2 3 4 0
-    def checkAdjacents(self, row, col):
+    def check_adjacents(self, row, col):
         score = 0
         # check how many are in the row and adjacent to the placed tile
         if row < 4:
@@ -52,7 +52,7 @@ class Board():
                     break
         return score
 
-    def rowToWall(self):
+    def row_to_wall(self):
         # This verifies that the garage row is full and moves the tile into the
         # wall at the appropriate place for the standard tiling
 
@@ -61,13 +61,15 @@ class Board():
         for i, row in enumerate(self.garage):
             if min(row) > -1:
                 if self.wall[i][(self.garage[i][0] + i) % 5] == -1:
-                    self.wall[i][(self.garage[i][0] + i) % 5] = self.garage[i][0]
-                    scoreChange += self.checkAdjacents(i, (self.garage[i][0] + i) % 5)
+                    self.wall[i][(self.garage[i][0] + i) %
+                                 5] = self.garage[i][0]
+                    scoreChange += self.check_adjacents(
+                        i, (self.garage[i][0] + i) % 5)
                 for k in range(len(self.garage[i])):
                     self.garage[i][k] = -1
         return scoreChange
 
-    def addToGarage(self, tile, cnt):
+    def add_to_garage(self, tile, cnt):
         tilesUsed = 0
         # print("picked", cnt, "of", tile)
         for i, row in enumerate(self.garage):
@@ -92,7 +94,8 @@ class Board():
                     tilesUsed += 1
 
         for i, row in enumerate(self.garage):
-            if self.wall[i][(tile + i) % 5] == -1 and (cnt - tilesUsed) > 0 and max(row) == -1:
+            if self.wall[i][(tile + i) % 5] == -1 and (cnt -
+                                                       tilesUsed) > 0 and max(row) == -1:
                 for j in range(len(self.garage[i])):
                     if (cnt - tilesUsed) == 0:
                         break
@@ -105,7 +108,7 @@ class Board():
         for i in range(cnt - tilesUsed):
             self.floor.append(tile)
 
-    def getScore(self):
+    def get_score(self):
         bonusScore = 0
         colorCount = [0, 0, 0, 0, 0]
         # count 5 color occurences
