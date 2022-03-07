@@ -63,3 +63,7 @@ class Factory():
         # print("After filling the dipslays:")
         # print(self.factDisps)
         return True
+
+    def num_tiles_remaining(self):
+        num_missing = sum([i.count(-1) for i in self.factDisps])
+        return 4*len(self.factDisps)-num_missing

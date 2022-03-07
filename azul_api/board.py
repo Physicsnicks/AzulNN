@@ -17,12 +17,6 @@ class Board():
                 return True
         return False
 
-    # The default board looks like this
-    # 0 1 2 3 4
-    # 4 0 1 2 3
-    # 3 4 0 1 2
-    # 2 3 4 0 1
-    # 1 2 3 4 0
     def check_adjacents(self, row, col):
         score = 0
         # check how many are in the row and adjacent to the placed tile
@@ -131,3 +125,35 @@ class Board():
                 bonusScore += 7
 
         return bonusScore
+
+    def get_board(self):
+        # get a binary number for the wall
+        # wall_num = 0
+        # pow_2 = 0
+        # for row in self.wall:
+        #     for tile in row:
+        #         pow_2 = pow_2 + 1
+        #         if tile > -1:
+        #             wall_num = wall_num + pow(2,pow_2)
+
+        # floor_num = 0
+        # for pow_10, tile in enumerate(self.floor):             
+        #     floor_num = floor_num + pow(10,pow_10)*tile
+
+        return self.wall, self.floor, self.garage
+
+    @staticmethod
+    def get_board_colors():
+        # The default board looks like this
+        # 0 1 2 3 4
+        # 4 0 1 2 3
+        # 3 4 0 1 2
+        # 2 3 4 0 1
+        # 1 2 3 4 0
+        return [
+            ['b', 'y', 'r', 'k', 'w'],
+            ['w', 'b', 'y', 'r', 'k'],
+            ['k', 'w', 'b', 'y', 'r'], 
+            ['r', 'k', 'w', 'b', 'y'], 
+            ['y', 'r', 'k', 'w', 'b'] ]
+

@@ -1,6 +1,6 @@
 import random
 
-from player import Player
+# from player import Player
 from nnPlayer import NNPlayer
 from player import HumanPlayer
 from factory import Factory
@@ -23,8 +23,9 @@ class Game:
 
      """
 
-    def __init__(self, numPlayers, humanPlayer=False):
+    def __init__(self, numPlayers, save_iteration = True, humanPlayer=False):
         self.numPlayers = numPlayers
+        self.save_iteration = save_iteration
         if self.numPlayers == 2:
             self.factDisplays = 5
         elif self.numPlayers == 3:
@@ -39,26 +40,32 @@ class Game:
 
         self.playArray = list()
         for i in range(0, numPlayers):
-            if i == 0:
-                self.playArray.append(Player(self.fact))
-            elif i == 1:
-                self.playArray.append(
-                    NNPlayer(
-                        self.fact,
-                        newMod=True,
-                        weightMod=weightMod))
-            elif humanPlayer:
-                self.playArray.append(HumanPlayer(self.fact, name="Hoomun"))
-                i += 1
-            else:
-                self.playArray.append(
-                    NNPlayer(
-                        self.fact,
-                        newMod=True,
-                        weightMod=weightMod))
+            # if i == 0:
+            #     self.playArray.append(Player(self.fact))
+            # elif i == 1:
+            #     self.playArray.append(
+            #         NNPlayer(
+            #             self.fact,
+            #             newMod=True,
+            #             weightMod=weightMod))
+            # elif humanPlayer:
+            #     self.playArray.append(HumanPlayer(self.fact, name="Hoomun"))
+            #     i += 1
+            # else:
+            self.playArray.append(
+                NNPlayer(
+                    self.fact,
+                    self.factDisplays,
+                    newMod=True,
+                    weightMod=weightMod,
+                    id=i))
 
         self.playersTurn = random.randint(0, numPlayers - 1)
         self.gameWinner = -1  # This is -1 until someone wins the game
+        self.round_num = 0
+
+    def get_facts(self):
+        return self.fact
 
     def display(self, ply, trn):
 
@@ -79,32 +86,36 @@ class Game:
         # time.sleep(5)
 
     def next_turn(self):
+        self.round_num = self.round_num + 1
 
         # Verify there are still some available tiles in the factory
-        maxA = 1 if len(self.fact.tableCenter) > 0 else -1
-        for i in range(len(self.fact.factDisps)):
-            temp = max(self.fact.factDisps[i])
-            maxA = max(temp, maxA)
-        if maxA == -1:
-            # end the game if we can't refill the factory
-            self.fact.fill_displays()
-            for i, player in enumerate(self.playArray):
-                player.score += player.board.row_to_wall()
-                if len(player.board.floor) > 0:
-                    player.score -= len(player.board.floor)
-                    player.board.floor = list()
-                if 5 in player.board.floor:
-                    self.playersTurn = i - 1
-            for player in self.playArray:
-                if player.board.check_end():
-                    print("Trying to end the game!")
-                    return False
+        for turn, player in enumerate(self.playArray):
+            maxA = 1 if len(self.fact.tableCenter) > 0 else -1
+            for i in range(len(self.fact.factDisps)):
+                temp = max(self.fact.factDisps[i])
+                maxA = max(temp, maxA)
+            if maxA == -1:
+                # end the game if we can't refill the factory
+                self.fact.fill_displays()
+                for i, player in enumerate(self.playArray):
+                    player.score += player.board.row_to_wall()
+                    if len(player.board.floor) > 0:
+                        player.score -= len(player.board.floor)
+                        player.board.floor = list()
+                    if 5 in player.board.floor:
+                        self.playersTurn = i - 1
 
-        else:
-            self.playArray[self.playersTurn].pickTiles()
-            # self.display(self.playArray[self.playersTurn], self.playersTurn)
+            else:
+                turnNum = (self.playersTurn + turn) % self.numPlayers
+                self.playArray[turnNum].pickTiles(self.round_num)
+                # self.display(self.playArray[self.playersTurn], self.playersTurn)
+        
+            if player.board.check_end():
+                print("Trying to end the game!")
+                return False
         return True
 
+    # TODO: This is now outdated because of playersTurn
     def start_game(self):
         keepGoing = True
         while keepGoing:
@@ -128,7 +139,7 @@ class Game:
                '''
         # Finally, save the winning player to use in the next run
         print("")
-        if len(bestNNPlayer) > 0:
+        if((len(bestNNPlayer) > 0) & (self.save_iteration)):
             print(
                 "NN winner is", max(
                     bestNNPlayer.items(), key=operator.itemgetter(1))[0])
@@ -143,7 +154,7 @@ class Game:
         return self.gameWinner
 
 
-gm = Game(4)
+# gm = Game(4)
 '''
 totWins = [0, 0, 0, 0]
 for i in range(batches):
