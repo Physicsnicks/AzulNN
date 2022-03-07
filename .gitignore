@@ -1,2 +1,8 @@
 **/.idea
 **/__pycache__
+**/bin
+**/include
+**/lib
+lib64
+*.cfg
+*.whl
